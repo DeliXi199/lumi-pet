@@ -118,7 +118,7 @@ class PetModel:
     pos: list[float] = field(default_factory=lambda: [180.0, 180.0])
     vel: list[float] = field(default_factory=lambda: [0.0, 0.0])
     current_radius: float = 60.0
-    mouse: list[float | bool] = field(default_factory=lambda: [180.0, 70.0, False])
+    mouse: list[float | bool] = field(default_factory=lambda: [180.0, 80.0, False])
     st: dict = field(default_factory=dict)
     energy: float = 0.7
     last_interact: float = -99.0
@@ -143,13 +143,21 @@ class PetModel:
     busy_level: float = 0.0
     focus_time: float = 0.0
     last_rest_at: float = -999.0
+    focus_threshold: float = 75.0
     resting_until: float = 0.0
     time_mode: str = "real"
     manual_minutes: float = 720.0
+    fast_speed: float = 240.0
     circ_wake: float = 1.0
     circ_warm: float = 0.0
     sound_on: bool = False
     breath_high: bool = False
+    menu_open: bool = False
+    menu_lean: list[float] = field(default_factory=lambda: [0.0, 0.0])
+    pointer_down_at: float = 0.0
+    pointer_moved: float = 0.0
+    last_pointer: list[float] = field(default_factory=lambda: [180.0, 180.0])
+    frame_dt: float = 1 / 60
 
     def __post_init__(self):
         self.themes = {
@@ -163,16 +171,24 @@ class PetModel:
             "rose": Theme("灰玫瑰", (224, 158, 168), (224, 158, 168), ("#1c1316", "#100a0c")),
         }
         self.moods = {
-            "idle": Mood("待机 · idle", 1.00, 1.00, 0.06, 1.0, 0.9, 0, 46, 0, 0, "dots", 1.0, 0.12),
-            "happy": Mood("开心 · happy", 1.13, 0.86, 0.12, 1.7, 2.3, -11, 54, 0.22, 0.5, "arc", 1.3, 0.30, fx="sparkle", bounce=1),
-            "excited": Mood("兴奋 · excited", 1.18, 0.82, 0.16, 2.0, 3.4, -13, 56, 0.30, 0.4, "wide", 1.45, 0.40, fx="sparkle", bounce=1.5),
-            "curious": Mood("好奇 · curious", 1.06, 0.96, 0.07, 1.3, 1.3, -5, 40, 0.12, 0.15, "wide", 1.05, 0.16, tilt=True, lean=True, core_gaze=True),
-            "playful": Mood("调皮 · playful", 1.10, 0.90, 0.13, 1.5, 2.0, -7, 50, 0.18, 0.25, "arc", 1.2, 0.26, sway=True, bounce=1),
-            "busy": Mood("紧绷 · busy", 0.97, 1.04, 0.05, 1.05, 2.8, -1, 38, -0.06, -0.3, "squint", 0.85, 0.34, jitter=True, core_drift=True),
-            "thinking": Mood("思考 · thinking", 1.0, 1.0, 0.05, 0.95, 0.8, -2, 44, -0.04, -0.2, "squint", 0.9, 0.10, fx="think", core_drift=True),
-            "calm": Mood("安宁 · breathe", 1.08, 0.95, 0.03, 1.25, 0.5, -3, 48, 0.05, 0.1, "lines", 1.15, 0.05, breathing=True),
-            "sleepy": Mood("困倦 · sleepy", 0.88, 1.24, 0.025, 0.4, 0.35, 19, 50, -0.34, -0.5, "lines", 0.65, 0.07, fx="zzz", sag=True, sway=True),
-            "surprised": Mood("惊讶 · surprised", 1.26, 0.74, 0.20, 2.1, 3.2, -17, 60, 0.34, 0.35, "huge", 1.6, 0.42, fx="burst", jitter=True),
+            "idle": Mood("待机 · idle", 1.00, 1.00, 0.06, 1.0, 0.9, 0, 23, 0, 0, "dots", 1.0, 0.12),
+            "happy": Mood("开心 · happy", 1.13, 0.86, 0.12, 1.7, 2.3, -11, 27, 0.22, 0.5, "arc", 1.3, 0.30, fx="sparkle", bounce=1),
+            "excited": Mood("兴奋 · excited", 1.18, 0.82, 0.16, 2.0, 3.4, -13, 28, 0.30, 0.4, "wide", 1.45, 0.40, fx="sparkle", bounce=1.5),
+            "curious": Mood("好奇 · curious", 1.06, 0.96, 0.07, 1.3, 1.3, -5, 20, 0.12, 0.15, "wide", 1.05, 0.16, tilt=True, lean=True, core_gaze=True),
+            "playful": Mood("调皮 · playful", 1.10, 0.90, 0.13, 1.5, 2.0, -7, 25, 0.18, 0.25, "arc", 1.2, 0.26, sway=True, bounce=1),
+            "busy": Mood("紧绷 · busy", 0.97, 1.04, 0.05, 1.05, 2.8, -1, 19, -0.06, -0.3, "squint", 0.85, 0.34, jitter=True, core_drift=True),
+            "thinking": Mood("思考 · thinking", 1.0, 1.0, 0.05, 0.95, 0.8, -2, 22, -0.04, -0.2, "squint", 0.9, 0.10, fx="think", core_drift=True),
+            "calm": Mood("安宁 · breathe", 1.08, 0.95, 0.03, 1.25, 0.5, -3, 24, 0.05, 0.1, "lines", 1.15, 0.05, breathing=True),
+            "sleepy": Mood("困倦 · sleepy", 0.88, 1.24, 0.025, 0.4, 0.35, 19, 25, -0.34, -0.5, "lines", 0.65, 0.07, fx="zzz", sag=True, sway=True),
+            "surprised": Mood("惊讶 · surprised", 1.26, 0.74, 0.20, 2.1, 3.2, -17, 30, 0.34, 0.35, "huge", 1.6, 0.42, fx="burst", jitter=True),
+            "await": Mood("在听 · ?", 1.06, 0.93, 0.08, 1.55, 1.9, -5, 25, 0.14, 0.12, "wide", 1.15, 0.24, fx="quest", tilt=True, lean=True, core_gaze=True),
+            "ask": Mood("这个? · pick", 1.07, 0.92, 0.09, 1.60, 2.0, -6, 23, 0.16, 0.15, "wide", 1.15, 0.24, fx="quest", tilt=True, lean=True, sway=True, core_gaze=True),
+            "config": Mood("设置 · tuning", 1.0, 1.0, 0.05, 1.25, 1.2, -2, 19, 0.04, -0.10, "squint", 1.0, 0.16, fx="orbit", core_drift=True),
+            "work": Mood("工作 · focus", 0.99, 1.02, 0.05, 1.15, 1.6, -2, 20, 0.02, -0.15, "focus", 1.0, 0.18, lean=True, core_drift=True),
+            "study": Mood("学习 · study", 1.02, 0.99, 0.05, 1.10, 1.0, -1, 21, 0.0, -0.05, "read", 0.95, 0.12, fx="think", core_gaze=True),
+            "chat": Mood("倾听 · chat", 1.08, 0.92, 0.10, 1.50, 2.2, -6, 25, 0.18, 0.20, "wide", 1.20, 0.26, fx="wave", tilt=True, lean=True, core_gaze=True),
+            "rest": Mood("休憩 · rest", 1.05, 1.02, 0.03, 1.05, 0.5, 3, 24, -0.05, 0.15, "lines", 1.0, 0.05, fx="steam", breathing=True, sway=True),
+            "play": Mood("玩耍 · play", 1.14, 0.85, 0.15, 1.80, 2.6, -10, 27, 0.26, 0.35, "star", 1.35, 0.34, fx="sparkle", bounce=1.4, sway=True),
         }
         self.manual_moods = ["idle", "happy", "excited", "curious", "playful", "busy", "thinking", "calm", "sleepy", "surprised"]
         self.st = {
@@ -182,7 +198,7 @@ class PetModel:
             "glow": 1.0,
             "breathe": 0.9,
             "lift": 0.0,
-            "eye_gap": 46.0,
+            "eye_gap": 23.0,
             "tilt": 0.0,
             "hue": [160.0, 185.0, 255.0],
             "core_size": 1.0,
@@ -259,6 +275,8 @@ class PetModel:
         )
 
     def effective_mood(self):
+        if self.menu_open:
+            return "await"
         if self.t < self.react_until and self.react_mood:
             return self.react_mood
         return self.auto_mood if self.autopilot else self.manual_mood
@@ -283,9 +301,10 @@ class PetModel:
         return f"{h:02d}:{m:02d} · {phase} · 状态 {mood_name} · 专注 {fm}:{fs:02d}"
 
     def update(self, dt):
+        self.frame_dt = dt
         self.t += dt
         if self.time_mode == "fast":
-            self.manual_minutes = (self.manual_minutes + 240 * dt) % 1440
+            self.manual_minutes = (self.manual_minutes + self.fast_speed * dt) % 1440
         mins = self.current_minutes()
         wake, warm, _ = self.circadian(mins)
         self.circ_wake = lerp(self.circ_wake, wake, 1 - math.pow(0.05, dt))
@@ -305,7 +324,7 @@ class PetModel:
             self.focus_time += dt
         else:
             self.focus_time = max(0, self.focus_time - dt * 1.5)
-        if self.focus_time > 75 and self.t - self.last_rest_at > 40 and self.t >= self.react_until:
+        if self.focus_time > self.focus_threshold and self.t - self.last_rest_at > 40 and self.t >= self.react_until:
             self.last_rest_at = self.t
             self.resting_until = self.t + 8
             self.react("calm", 8)
@@ -318,13 +337,7 @@ class PetModel:
             r = 0 if random.random() < 0.4 else 2 + random.random() * 3.5
             self.look_target = [math.cos(a) * r, math.sin(a) * r * 0.7]
 
-        self.wander_timer -= dt
-        if self.wander_timer <= 0:
-            self.wander_timer = 5 + random.random() * 7
-            awake = self.energy > 0.4 and self.circ_wake > 0.4
-            rad = 35 if awake else 9
-            a = random.random() * math.tau
-            self.wander = [math.cos(a) * rad * random.random(), math.sin(a) * rad * 0.5 * random.random()]
+        self.wander = [0.0, 0.0]
 
         if self.autopilot:
             d_mouse = math.hypot(self.mouse[0] - self.pos[0], self.mouse[1] - self.pos[1]) if self.mouse[2] else 9999
@@ -385,14 +398,18 @@ class PetModel:
             self.blink = max(0, self.blink - dt * 7)
 
     def physics(self, dt, target):
-        hx = 180 + self.wander[0]
-        hy = 180 + self.st["lift"] + self.wander[1]
-        if target.bounce:
-            hy += math.sin(self.t * 5) * -8 * target.bounce
-        if target.sag:
-            hy += 6 + math.sin(self.t * 0.7) * 3.5
-        if target.sway:
-            hx += math.sin(self.t * 0.9) * 10
+        if self.menu_open:
+            hx = 180 + self.menu_lean[0]
+            hy = 180 + self.st["lift"] + self.menu_lean[1]
+        else:
+            hx = 180 + self.wander[0]
+            hy = 180 + self.st["lift"] + self.wander[1]
+            if target.bounce:
+                hy += math.sin(self.t * 5) * -8 * target.bounce
+            if target.sag:
+                hy += 6 + math.sin(self.t * 0.7) * 3.5
+            if target.sway:
+                hx += math.sin(self.t * 0.9) * 10
         spring = 110
         damp = 10
         self.vel[0] += ((hx - self.pos[0]) * spring - self.vel[0] * damp) * dt
@@ -418,12 +435,12 @@ class PetModel:
             self.spark_timer -= dt
             if self.spark_timer <= 0:
                 self.spark_timer = 0.18
-                self.sparkles.append([self.pos[0] + (random.random() - 0.5) * self.current_radius * 1.6, self.pos[1] - self.current_radius * 0.6, 0, -30 - random.random() * 20, 1, 1.2 + random.random() * 1.8, False])
+                self.sparkles.append([self.pos[0] + (random.random() - 0.5) * self.current_radius * 1.6, self.pos[1] - self.current_radius * 0.6, 0, -30 - random.random() * 20, 1, 1.0 + random.random() * 1.5, False])
         if target.fx == "zzz":
             self.zzz_timer -= dt
             if self.zzz_timer <= 0:
                 self.zzz_timer = 0.9
-                self.sparkles.append([self.pos[0] + self.current_radius * 0.5, self.pos[1] - self.current_radius * 0.4, 7, -13, 1, 2.6, True])
+                self.sparkles.append([self.pos[0] + self.current_radius * 0.5, self.pos[1] - self.current_radius * 0.4, 7, -13, 1, 2.0, True])
         for sp in self.sparkles[:]:
             sp[0] += sp[2] * dt
             sp[1] += sp[3] * dt
@@ -467,6 +484,33 @@ class PetWindow(QWidget):
         self.model = model
         self.key_queue = key_queue
         self.panel = None
+        self.option_menu_open = False
+        self.option_hover = -1
+        self.option_menu_started = 0.0
+        self.option_menu_anchor = None
+        self.option_menu_positions = []
+        self.bubble_text = ""
+        self.bubble_started = 0.0
+        self.bubble_until = 0.0
+        self.idle_bubble_timer = 18.0 + random.random() * 10.0
+        self.reply_lines = [
+            "嗯嗯，我在听～",
+            "这个想法不错！",
+            "说说看，我都听着呢",
+            "哈，有意思 ✨",
+            "我懂你的意思",
+            "陪着你，别急",
+            "继续，我喜欢听",
+            "收到！",
+        ]
+        self.option_items = [
+            ("设置", "⚙️", "config", "打开设置，一起调一调吧～"),
+            ("工作", "💼", "work", "进入工作模式，我陪你专注 💪"),
+            ("学习", "📚", "study", "一起学习，慢慢想就好 📚"),
+            ("AI 聊天", "💬", "chat", "我在听，来跟我聊聊吧～"),
+            ("休息", "☕", "rest", "深呼吸，放松一下 ☕"),
+            ("玩耍", "🎮", "play", "耶！陪你玩一会儿 🎉"),
+        ]
         self.dragging_window = False
         self.press_pos = QPointF()
         self.last_global = QPoint()
@@ -494,6 +538,7 @@ class PetWindow(QWidget):
         dt = min(now - self.last, 0.05)
         self.last = now
         self.model.update(dt)
+        self.update_bubble(dt)
         self.update()
         if self.panel and self.panel.isVisible():
             self.panel.refresh()
@@ -510,6 +555,40 @@ class PetWindow(QWidget):
             self.model.notify_typing()
             drained += 1
 
+    def update_bubble(self, dt):
+        if self.bubble_text and self.model.t >= self.bubble_until:
+            self.bubble_text = ""
+        if self.option_menu_open or self.bubble_text:
+            return
+        self.idle_bubble_timer -= dt
+        if self.idle_bubble_timer <= 0:
+            self.idle_bubble_timer = 16 + random.random() * 18
+            phase = self.model.circadian(self.model.current_minutes())[2]
+            time_lines = {
+                "深夜": ["夜深了，早点休息呀 🌙", "这么晚还醒着？我陪你", "安静的深夜，适合发呆 ✨"],
+                "清晨": ["早安～新的一天开始啦 ☀️", "清晨的光，刚刚好", "睡醒了吗？伸个懒腰吧"],
+                "上午": ["上午好，状态不错哦", "趁现在精神好，加油！", "要不要定个小目标？"],
+                "正午": ["中午啦，记得吃饭 🍚", "歇一会儿，养养神", "正午的光最暖"],
+                "午后": ["午后有点犯困呢～", "来杯茶提提神？", "慢悠悠的下午 ✨"],
+                "黄昏": ["黄昏好美，看一眼吧 🌆", "今天辛苦啦", "夕阳下，放慢一点"],
+                "夜晚": ["晚上好，今天过得怎样？", "夜色温柔，放松点 🌙", "忙完了就早点休息呀"],
+            }
+            idle_lines = [
+                "今天过得怎么样？",
+                "要不要喝口水～",
+                "我一直在这儿陪你",
+                "发会儿呆也不错 ✨",
+                "深呼吸，放松点",
+                "需要我做点什么吗？",
+            ]
+            pool = time_lines.get(phase, idle_lines) if random.random() < 0.6 else idle_lines
+            self.say(random.choice(pool), 3.2)
+
+    def say(self, text, duration=3.2):
+        self.bubble_text = text
+        self.bubble_started = self.model.t
+        self.bubble_until = self.model.t + duration * 2.8 + 3
+
     def open_panel(self):
         if self.panel is None:
             self.panel = ControlPanel(self.model, self)
@@ -525,14 +604,110 @@ class PetWindow(QWidget):
         self.panel.activateWindow()
         self.panel.refresh()
 
+    def pet_center(self):
+        return QPointF(self.stage.x() + self.model.pos[0], self.stage.y() + self.model.pos[1])
+
+    def option_item_pos(self, index, radius=124, progress=1.0):
+        center = self.option_menu_anchor if self.option_menu_anchor is not None else self.pet_center()
+        if 0 <= index < len(self.option_menu_positions):
+            target = self.option_menu_positions[index]
+        else:
+            angle = math.radians(-90 + index * 360 / len(self.option_items))
+            target = QPointF(center.x() + math.cos(angle) * radius, center.y() + math.sin(angle) * radius)
+        return QPointF(
+            center.x() + (target.x() - center.x()) * progress,
+            center.y() + (target.y() - center.y()) * progress,
+        )
+
+    def option_at(self, pos):
+        for i, _item in enumerate(self.option_items):
+            c = self.option_item_pos(i)
+            if math.hypot(pos.x() - c.x(), pos.y() - c.y()) <= 34:
+                return i
+        return -1
+
+    def open_option_menu(self):
+        self.option_menu_anchor = self.pet_center()
+        self.option_menu_positions = []
+        for i in range(len(self.option_items)):
+            angle = math.radians(-90 + i * 360 / len(self.option_items))
+            self.option_menu_positions.append(
+                QPointF(
+                    self.option_menu_anchor.x() + math.cos(angle) * 124,
+                    self.option_menu_anchor.y() + math.sin(angle) * 124,
+                )
+            )
+        self.option_menu_open = True
+        self.option_hover = -1
+        self.option_menu_started = self.model.t
+        self.dragging_window = False
+        self.bubble_text = ""
+        self.model.wander = [0.0, 0.0]
+        self.model.menu_open = True
+        self.model.menu_lean = [0.0, 0.0]
+        self.model.last_interact = self.model.t
+        self.model.react("await", 9999)
+        self.setCursor(Qt.CursorShape.ArrowCursor)
+
+    def close_option_menu(self):
+        self.option_menu_open = False
+        self.option_hover = -1
+        self.option_menu_anchor = None
+        self.option_menu_positions = []
+        self.model.menu_open = False
+        self.model.menu_lean = [0.0, 0.0]
+        self.setCursor(Qt.CursorShape.ArrowCursor)
+        if self.model.react_mood in {"await", "ask"}:
+            self.model.react_until = 0
+
+    def toggle_option_menu(self):
+        if self.option_menu_open:
+            self.close_option_menu()
+        else:
+            self.open_option_menu()
+
+    def perform_option(self, index):
+        label, _icon, mood_key, message = self.option_items[index]
+        self.close_option_menu()
+        self.model.last_interact = self.model.t
+        self.model.autopilot = False
+        self.model.manual_mood = mood_key
+        if label == "设置":
+            self.say(message, 3.2)
+            self.open_panel()
+            return
+        if mood_key == "chat":
+            self.open_panel()
+            if self.panel:
+                self.panel.focus_talk()
+        if mood_key == "play":
+            self.model.react("surprised", 0.5)
+        self.say(message, 3.6)
+        if mood_key == "play":
+            self.model.sfx_chime()
+
+    def submit_chat(self, text):
+        self.model.autopilot = False
+        self.model.manual_mood = "chat"
+        self.model.last_interact = self.model.t
+        self.model.react("happy", 0.7)
+        self.say(random.choice(self.reply_lines) if text.strip() else "在听～", 3.6)
+
     def to_canvas(self, pos):
         return pos.x() - self.stage.x(), pos.y() - self.stage.y()
 
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.RightButton:
-            self.open_panel()
+            self.toggle_option_menu()
             return
         if event.button() != Qt.MouseButton.LeftButton:
+            return
+        if self.option_menu_open:
+            index = self.option_at(event.position())
+            if index >= 0:
+                self.perform_option(index)
+            else:
+                self.close_option_menu()
             return
         x, y = self.to_canvas(event.position())
         d = math.hypot(x - self.model.pos[0], y - self.model.pos[1])
@@ -551,9 +726,19 @@ class PetWindow(QWidget):
         mv = math.hypot(x - self.model.last_pointer[0], y - self.model.last_pointer[1])
         self.model.pointer_speed = self.model.pointer_speed * 0.8 + mv * 0.2
         self.model.mouse = [x, y, 0 <= x <= 360 and 0 <= y <= 360]
+        if self.option_menu_open:
+            self.option_hover = self.option_at(event.position())
+            if self.option_hover >= 0:
+                angle = math.radians(-90 + self.option_hover * 360 / len(self.option_items))
+                self.model.menu_lean = [math.cos(angle) * 23, math.sin(angle) * 23]
+            else:
+                self.model.menu_lean = [0.0, 0.0]
+            self.setCursor(Qt.CursorShape.PointingHandCursor if self.option_hover >= 0 else Qt.CursorShape.ArrowCursor)
+            self.model.last_pointer = [x, y]
+            return
         if self.dragging_window:
             self.model.pointer_moved += mv
-            if self.model.pointer_moved > 7:
+            if self.model.pointer_moved > 3.5:
                 global_pos = event.globalPosition().toPoint()
                 delta = global_pos - self.last_global
                 self.move(self.pos() + delta)
@@ -572,10 +757,9 @@ class PetWindow(QWidget):
 
     def mouseReleaseEvent(self, event):
         if event.button() == Qt.MouseButton.RightButton:
-            self.open_panel()
             return
         if event.button() == Qt.MouseButton.LeftButton and self.dragging_window:
-            if self.model.pointer_moved <= 7 and self.model.t - self.model.pointer_down_at < 0.3:
+            if self.model.pointer_moved <= 3.5 and self.model.t - self.model.pointer_down_at < 0.3:
                 self.model.react("surprised", 0.9)
                 self.model.ripples.append([25.0, 0.6])
                 self.model.vel[1] -= 210
@@ -588,10 +772,24 @@ class PetWindow(QWidget):
         if not self.dragging_window:
             self.model.mouse[2] = False
 
+    def keyPressEvent(self, event):
+        if self.option_menu_open and event.key() == Qt.Key.Key_Escape:
+            self.close_option_menu()
+            event.accept()
+            return
+        super().keyPressEvent(event)
+
+    def focusOutEvent(self, event):
+        if self.option_menu_open:
+            self.close_option_menu()
+        super().focusOutEvent(event)
+
     def paintEvent(self, event):
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing, True)
         self.draw_pet(p)
+        self.draw_option_menu(p)
+        self.draw_bubble(p)
 
     def draw_pet(self, p):
         m = self.model
@@ -613,9 +811,16 @@ class PetWindow(QWidget):
         cy = sy + m.pos[1] + ((random.random() - 0.5) * 4.5 * jit if jit else 0)
         qcol = QColor(*col)
 
-        self.radial(p, QPointF(cx, cy), base_r * 2.2, qcol, int(72 * render_glow))
+        glow = QRadialGradient(QPointF(cx, cy), base_r * 2.6)
+        glow.setColorAt(0, QColor(*col, int(76 * render_glow)))
+        glow.setColorAt(0.4, QColor(*col, int(26 * render_glow)))
+        glow.setColorAt(1, QColor(*col, 0))
+        p.setPen(Qt.PenStyle.NoPen)
+        p.setBrush(glow)
+        p.drawEllipse(QPointF(cx, cy), base_r * 2.6, base_r * 2.6)
         if mood.breathing:
-            p.setPen(QPen(QColor(*col, 86), 2))
+            breath_alpha = int(46 + 30 * (breath_phase * 0.5 + 0.5))
+            p.setPen(QPen(QColor(*col, breath_alpha), 1.0))
             r = base_r * (1.5 + breath_phase * 0.5)
             p.drawEllipse(QPointF(cx, cy), r, r)
             if breath_phase > 0.985 and not m.breath_high:
@@ -628,15 +833,16 @@ class PetWindow(QWidget):
         self.draw_bursts(p, cx, cy, base_r, qcol)
 
         gx, gy = self.gaze(cx - sx, cy - sy, mood)
-        m.st["gx"] = lerp(m.st["gx"], gx, 0.25)
-        m.st["gy"] = lerp(m.st["gy"], gy, 0.25)
+        gaze_k = 1 - math.pow(0.001, m.frame_dt)
+        m.st["gx"] = lerp(m.st["gx"], gx, gaze_k)
+        m.st["gy"] = lerp(m.st["gy"], gy, gaze_k)
         path = self.body_path(cx, cy, base_r, mood)
-        grad = QRadialGradient(QPointF(cx - base_r * 0.25, cy - base_r * 0.35), base_r * 1.35)
-        grad.setColorAt(0, QColor(*color_mix(col, (255, 255, 255), 0.24), 236))
-        grad.setColorAt(0.62, QColor(*col, 150))
-        grad.setColorAt(1, QColor(*color_mix(col, (0, 0, 0), 0.38), 105))
+        grad = QRadialGradient(QPointF(cx - base_r * 0.3, cy - base_r * 0.4), base_r * 1.3)
+        grad.setColorAt(0, QColor(*col, 235))
+        grad.setColorAt(0.6, QColor(*col, 128))
+        grad.setColorAt(1, QColor(int(col[0] * 0.5), int(col[1] * 0.5), int(col[2] * 0.7), 82))
         p.setBrush(grad)
-        p.setPen(QPen(QColor(*col, int(90 * render_glow)), 3))
+        p.setPen(Qt.PenStyle.NoPen)
         p.drawPath(path)
         p.save()
         p.setClipPath(path)
@@ -647,10 +853,180 @@ class PetWindow(QWidget):
             lum_y += m.st["gy"] * 0.6
         if mood.core_drift:
             lum_x += math.sin(m.t * 1.1) * base_r * 0.12
-        self.radial(p, QPointF(lum_x, lum_y), base_r * (1.05 + 0.25 * m.st["core_size"]), QColor(255, 255, 255), int((18 + max(0, m.st["core_size"] - 0.8) * 94) * render_glow))
+        lum_pulse = math.sin(m.t * m.st["breathe"] * 2.4) * m.st["core_pulse"] + 1
+        lum_r = base_r * (1.05 + 0.25 * m.st["core_size"]) * lum_pulse
+        lum_alpha = int((13 + max(0, m.st["core_size"] - 0.8) * 82) * render_glow)
+        lum_grad = QRadialGradient(QPointF(lum_x, lum_y), lum_r)
+        lum_grad.setColorAt(0, QColor(255, 255, 255, clamp(lum_alpha, 0, 255)))
+        lum_grad.setColorAt(0.5, QColor(*col, clamp(int(lum_alpha * 0.5), 0, 255)))
+        lum_grad.setColorAt(1, QColor(*col, 0))
+        p.setPen(Qt.PenStyle.NoPen)
+        p.setBrush(lum_grad)
+        p.drawEllipse(QPointF(lum_x, lum_y), lum_r, lum_r)
         p.restore()
-        self.draw_eyes(p, mood, cx - m.st["eye_gap"] / 4 + m.st["gx"], cx + m.st["eye_gap"] / 4 + m.st["gx"], cy - 4 + m.st["gy"], qcol)
+        self.draw_eyes(p, mood, cx - m.st["eye_gap"] / 2 + m.st["gx"], cx + m.st["eye_gap"] / 2 + m.st["gx"], cy - 4 + m.st["gy"], qcol)
         self.draw_sparkles(p, sx, sy, cx, cy, base_r, qcol, mood)
+        self.draw_extra_fx(p, cx, cy, base_r, qcol, mood)
+
+    def draw_option_menu(self, p):
+        if not self.option_menu_open:
+            return
+        m = self.model
+        col = tuple(int(v) for v in m.st["hue"])
+        qcol = QColor(*col)
+
+        for i, (label, icon, _mood, _message) in enumerate(self.option_items):
+            raw = clamp((m.t - self.option_menu_started - i * 0.028) / 0.34, 0, 1)
+            ease = 1 - math.pow(1 - raw, 3)
+            c = self.option_item_pos(i, progress=ease)
+            hover = i == self.option_hover
+            opacity = ease
+            orb_r = 24 * (1.1 if hover else 1.0) * (0.3 + 0.7 * ease)
+            orb_float = -2.0 if hover else math.sin(m.t * 2.1 + i * 0.72) * 6.0
+            orb_c = QPointF(c.x(), c.y() + orb_float)
+            glow_alpha = int((72 if hover else 42) * opacity)
+            self.radial(p, orb_c, orb_r * (2.25 if hover else 1.85), qcol, glow_alpha)
+            p.save()
+            p.setOpacity(opacity)
+            orb_grad = QRadialGradient(QPointF(orb_c.x() - orb_r * 0.24, orb_c.y() - orb_r * 0.34), orb_r * 1.45)
+            orb_grad.setColorAt(0, QColor(255, 255, 255, 58 if not hover else 92))
+            orb_grad.setColorAt(0.56, QColor(*col, 38 if not hover else 82))
+            orb_grad.setColorAt(1, QColor(*col, 12 if not hover else 26))
+            p.setBrush(orb_grad)
+            p.setPen(QPen(QColor(*col, 78 if not hover else 185), 1.2))
+            p.drawEllipse(orb_c, orb_r, orb_r)
+            p.setPen(QColor(246, 248, 255, 235))
+            icon_font = QFont("Segoe UI Emoji")
+            icon_font.setPixelSize(21)
+            p.setFont(icon_font)
+            p.drawText(QRectF(orb_c.x() - orb_r, orb_c.y() - orb_r - 1, orb_r * 2, orb_r * 2), Qt.AlignmentFlag.AlignCenter, icon)
+            p.setPen(QColor(226, 233, 248, 235 if hover else 178))
+            label_font = QFont("Microsoft YaHei UI")
+            label_font.setPixelSize(11)
+            p.setFont(label_font)
+            p.drawText(QRectF(c.x() - 32, c.y() + 31, 64, 16), Qt.AlignmentFlag.AlignCenter, label)
+            p.restore()
+
+    def draw_bubble(self, p):
+        if not self.bubble_text:
+            return
+        m = self.model
+        if m.t >= self.bubble_until:
+            return
+        fade = clamp(min((m.t - self.bubble_started) * 5, (self.bubble_until - m.t) * 4, 1), 0, 1)
+        if fade <= 0:
+            return
+        col = tuple(int(v) for v in m.st["hue"])
+        center = self.pet_center()
+        wobble = math.sin(m.t * 2.0) * 3.0
+        p.save()
+        p.setOpacity(fade)
+        text_font = QFont("Microsoft YaHei UI")
+        text_font.setWeight(QFont.Weight.Medium)
+        text_font.setPixelSize(13)
+        text_font.setLetterSpacing(QFont.SpacingType.AbsoluteSpacing, 0.45)
+        p.setFont(text_font)
+        metrics = p.fontMetrics()
+        pad_x = 17
+        pad_y = 11
+        letter_spacing = 0.45
+        line_height = 21
+        lines = self.wrap_bubble_text(metrics, self.bubble_text, 198 - pad_x * 2, letter_spacing)
+        raw_w = max((self.text_width(metrics, line, letter_spacing) for line in lines), default=0)
+        w = min(198, max(66, raw_w + pad_x * 2))
+        h = max(44, pad_y * 2 + line_height * len(lines))
+        x = clamp(center.x() + 38, 8, self.width() - w - 8)
+        y = clamp(center.y() - 70 - h + wobble, 8, self.height() - h - 30)
+        rect = QRectF(x, y, w, h)
+        age = max(0, m.t - self.bubble_started)
+        if age < 0.30:
+            pop = 0.5 + (1.05 - 0.5) * (age / 0.30)
+        elif age < 0.50:
+            pop = 1.05 - 0.05 * ((age - 0.30) / 0.20)
+        else:
+            pop = 1.0
+        origin = QPointF(rect.left() + rect.width() * 0.18, rect.bottom())
+        p.translate(origin)
+        p.rotate(-1.4)
+        p.scale(pop, pop)
+        p.translate(-origin)
+        self.radial(p, rect.center(), max(w, h) * 0.78, QColor(*col), 60)
+        path = QPainterPath()
+        path.moveTo(x + w * 0.15, y + h * 0.04)
+        path.cubicTo(x + w * 0.35, y - h * 0.04, x + w * 0.79, y - h * 0.03, x + w * 0.94, y + h * 0.22)
+        path.cubicTo(x + w * 1.05, y + h * 0.42, x + w * 0.96, y + h * 0.86, x + w * 0.66, y + h * 0.97)
+        path.cubicTo(x + w * 0.36, y + h * 1.07, x + w * 0.08, y + h * 0.91, x + w * 0.02, y + h * 0.62)
+        path.cubicTo(x - w * 0.03, y + h * 0.36, x + w * 0.02, y + h * 0.12, x + w * 0.15, y + h * 0.04)
+        bubble_grad = QRadialGradient(QPointF(x + w * 0.30, y + h * 0.16), max(w, h) * 1.05)
+        bubble_grad.setColorAt(0, QColor(255, 255, 255, 62))
+        bubble_grad.setColorAt(0.38, QColor(*col, 76))
+        bubble_grad.setColorAt(0.74, QColor(*col, 32))
+        bubble_grad.setColorAt(1, QColor(*col, 14))
+        p.setPen(QPen(QColor(*col, 118), 1.1))
+        p.setBrush(bubble_grad)
+        p.drawPath(path)
+        tail_x = rect.left() + rect.width() * 0.14
+        small_tail_x = rect.left() + rect.width() * 0.04
+        p.setPen(Qt.PenStyle.NoPen)
+        tail_grad = QRadialGradient(QPointF(tail_x - 2, rect.bottom() + 4), 13)
+        tail_grad.setColorAt(0, QColor(255, 255, 255, 70))
+        tail_grad.setColorAt(0.58, QColor(*col, 78))
+        tail_grad.setColorAt(1, QColor(*col, 24))
+        p.setBrush(tail_grad)
+        p.drawEllipse(QPointF(tail_x, rect.bottom() + 4.5), 6.5, 6.5)
+        p.setBrush(QColor(*col, 58))
+        p.drawEllipse(QPointF(small_tail_x, rect.bottom() + 20.5), 3.5, 3.5)
+        self.draw_bubble_text(
+            p,
+            rect.adjusted(pad_x, pad_y, -pad_x, -pad_y),
+            lines,
+            metrics,
+            line_height,
+            letter_spacing,
+            QColor(*col, 170),
+            QColor(238, 242, 255, 245),
+        )
+        p.restore()
+
+    @staticmethod
+    def text_width(metrics, text, letter_spacing=0.0):
+        if not text:
+            return 0.0
+        return sum(metrics.horizontalAdvance(ch) for ch in text) + max(0, len(text) - 1) * letter_spacing
+
+    def wrap_bubble_text(self, metrics, text, max_width, letter_spacing):
+        lines = []
+        current = ""
+        for ch in text:
+            candidate = current + ch
+            if current and self.text_width(metrics, candidate, letter_spacing) > max_width:
+                lines.append(current)
+                current = ch.lstrip()
+            else:
+                current = candidate
+        if current:
+            lines.append(current)
+        return lines or [""]
+
+    def draw_spaced_line(self, p, text, x, baseline, metrics, letter_spacing):
+        cursor = x
+        for ch in text:
+            p.drawText(QPointF(cursor, baseline), ch)
+            cursor += metrics.horizontalAdvance(ch) + letter_spacing
+
+    def draw_bubble_text(self, p, rect, lines, metrics, line_height, letter_spacing, glow_color, text_color):
+        total_h = line_height * len(lines)
+        top = rect.top() + (rect.height() - total_h) / 2
+        ascent_offset = (line_height - metrics.height()) / 2 + metrics.ascent()
+        for i, line in enumerate(lines):
+            line_w = self.text_width(metrics, line, letter_spacing)
+            x = rect.left() + (rect.width() - line_w) / 2
+            baseline = top + i * line_height + ascent_offset
+            p.setPen(glow_color)
+            for dx, dy in ((0, 0), (-0.6, 0), (0.6, 0), (0, -0.6), (0, 0.6)):
+                self.draw_spaced_line(p, line, x + dx, baseline + dy, metrics, letter_spacing)
+            p.setPen(text_color)
+            self.draw_spaced_line(p, line, x, baseline, metrics, letter_spacing)
 
     def body_path(self, cx, cy, base_r, mood):
         m = self.model
@@ -663,14 +1039,25 @@ class PetWindow(QWidget):
             tilt += math.sin(m.t * 1.6) * 0.1
         cos_t = math.cos(tilt)
         sin_t = math.sin(tilt)
+        speed = math.hypot(m.vel[0], m.vel[1])
+        stretch = min(speed * 0.002, 0.38)
+        v_ang = math.atan2(m.vel[1], m.vel[0]) if speed > 0.001 else 0.0
+        cos_v = math.cos(v_ang)
+        sin_v = math.sin(v_ang)
         points = []
-        for i in range(64):
+        for i in range(65):
             ang = i / 64 * math.tau
             noise = math.sin(ang * 3 + m.t * 1.4) * m.st["wobble"] + math.sin(ang * 5 - m.t) * m.st["wobble"] * 0.5 + math.sin(ang * 2 + m.t * 0.6) * m.st["wobble"] * 0.7
-            rr = base_r * (1 + noise)
+            rr = max(base_r * (1 + noise), 1)
             x = math.cos(ang) * rr * sx_scale
             y = math.sin(ang) * rr * (sy_scale * 0.5 + 0.5)
-            points.append(QPointF(cx + x * cos_t - y * sin_t, cy + x * sin_t + y * cos_t))
+            tx = x * cos_t - y * sin_t
+            ty = x * sin_t + y * cos_t
+            vx = tx * cos_v + ty * sin_v
+            vy = -tx * sin_v + ty * cos_v
+            vx *= 1 + stretch
+            vy /= 1 + stretch
+            points.append(QPointF(cx + vx * cos_v - vy * sin_v, cy + vx * sin_v + vy * cos_v))
         path = QPainterPath()
         path.addPolygon(QPolygonF(points))
         path.closeSubpath()
@@ -698,14 +1085,14 @@ class PetWindow(QWidget):
 
     def draw_ripples(self, p, cx, cy, col):
         for r, a in self.model.ripples:
-            p.setPen(QPen(QColor(col.red(), col.green(), col.blue(), int(clamp(a, 0, 1) * 160)), 1.8))
+            p.setPen(QPen(QColor(col.red(), col.green(), col.blue(), int(clamp(a, 0, 1) * 255)), 1.25))
             p.setBrush(Qt.BrushStyle.NoBrush)
             p.drawEllipse(QPointF(cx, cy), r, r)
 
     def draw_bursts(self, p, cx, cy, base_r, col):
         for ang, length, a in self.model.bursts:
             length = min(length, 30)
-            p.setPen(QPen(QColor(col.red(), col.green(), col.blue(), int(clamp(a, 0, 1) * 190)), 2.2, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
+            p.setPen(QPen(QColor(col.red(), col.green(), col.blue(), int(clamp(a, 0, 1) * 255)), 1.5, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
             p.drawLine(QPointF(cx + math.cos(ang) * base_r * 1.05, cy + math.sin(ang) * base_r * 1.05), QPointF(cx + math.cos(ang) * (base_r * 1.05 + length), cy + math.sin(ang) * (base_r * 1.05 + length)))
 
     def draw_eyes(self, p, mood, lx, rx, ey, col):
@@ -719,22 +1106,43 @@ class PetWindow(QWidget):
         elif mood.eye_style == "squint":
             self.glow_dot(p, lx, ey, 3, 4 * blink, col)
             self.line_eye(p, rx, ey - 1, 7.5)
+        elif mood.eye_style == "focus":
+            self.glow_dot(p, lx, ey + 1, 2.5, 4 * blink, col)
+            self.glow_dot(p, rx, ey + 1, 2.5, 4 * blink, col)
+            p.setPen(QPen(QColor(255, 255, 255, 245), 1.5, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
+            p.drawLine(QPointF(lx - 4.5, ey - 6), QPointF(lx + 3.5, ey - 3.5))
+            p.drawLine(QPointF(rx + 4.5, ey - 6), QPointF(rx - 3.5, ey - 3.5))
+        elif mood.eye_style == "read":
+            self.read_eye(p, lx, ey - 1.5)
+            self.read_eye(p, rx, ey - 1.5)
+        elif mood.eye_style == "star":
+            size = 4.25 * (0.62 + 0.38 * blink)
+            self.star_eye(p, lx, ey, size, col)
+            self.star_eye(p, rx, ey, size, col)
         else:
-            size = {"dots": (3.5, 6.5), "wide": (6.5, 7), "huge": (9, 9)}.get(mood.eye_style, (3.5, 6.5))
-            self.glow_dot(p, lx, ey, size[0], size[1] * blink, col)
-            self.glow_dot(p, rx, ey, size[0], size[1] * blink, col)
+            size = {
+                "dots": (3.5, 6.5 * blink),
+                "wide": (6 * blink + 0.5, 7 * blink),
+                "huge": (8 * blink + 1, 9 * blink),
+            }.get(mood.eye_style, (3.5, 6.5 * blink))
+            self.glow_dot(p, lx, ey, size[0], size[1], col)
+            self.glow_dot(p, rx, ey, size[0], size[1], col)
 
     def glow_dot(self, p, x, y, rx, ry, col):
-        self.radial(p, QPointF(x, y), max(rx, ry) * 2.2, col, 120)
+        radius = max(rx, ry, 0.5) * 1.4
+        grad = QRadialGradient(QPointF(x, y), radius)
+        grad.setColorAt(0, QColor(255, 255, 255, 250))
+        grad.setColorAt(0.5, QColor(col.red(), col.green(), col.blue(), 230))
+        grad.setColorAt(1, QColor(col.red(), col.green(), col.blue(), 0))
         p.setPen(Qt.PenStyle.NoPen)
-        p.setBrush(QColor(255, 255, 255, 245))
-        p.drawEllipse(QPointF(x, y), max(rx, 0.8), max(ry, 0.7))
+        p.setBrush(grad)
+        p.drawEllipse(QPointF(x, y), max(rx, 0.5), max(ry, 0.0))
 
     def arc_eye(self, p, x, y):
-        p.setPen(QPen(QColor(255, 255, 255, 245), 2.6, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
+        p.setPen(QPen(QColor(255, 255, 255, 245), 2.5, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
         path = QPainterPath()
         for i in range(18):
-            a = math.radians(205 + 130 * i / 17)
+            a = math.pi * (1.12 + 0.76 * i / 17)
             point = QPointF(x + math.cos(a) * 5.5, y + 2 + math.sin(a) * 5.5)
             if i == 0:
                 path.moveTo(point)
@@ -743,8 +1151,35 @@ class PetWindow(QWidget):
         p.drawPath(path)
 
     def line_eye(self, p, x, y, w):
-        p.setPen(QPen(QColor(255, 255, 255, 245), 2.4, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
+        p.setPen(QPen(QColor(255, 255, 255, 245), 2.0, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
         p.drawLine(QPointF(x - w / 2, y), QPointF(x + w / 2, y))
+
+    def read_eye(self, p, x, y):
+        p.setPen(QPen(QColor(255, 255, 255, 245), 2.25, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
+        path = QPainterPath()
+        for i in range(16):
+            a = math.pi * (0.15 + 0.7 * i / 15)
+            point = QPointF(x + math.cos(a) * 5, y + math.sin(a) * 5)
+            if i == 0:
+                path.moveTo(point)
+            else:
+                path.lineTo(point)
+        p.drawPath(path)
+
+    def star_eye(self, p, x, y, r, col):
+        radius = r * 1.7
+        grad = QRadialGradient(QPointF(x, y), radius)
+        grad.setColorAt(0, QColor(255, 255, 255, 250))
+        grad.setColorAt(0.5, QColor(col.red(), col.green(), col.blue(), 217))
+        grad.setColorAt(1, QColor(col.red(), col.green(), col.blue(), 0))
+        p.setPen(Qt.PenStyle.NoPen)
+        p.setBrush(grad)
+        p.drawEllipse(QPointF(x, y), radius, radius)
+        p.setPen(QPen(QColor(255, 255, 255, 245), 1.2, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
+        p.drawLine(QPointF(x - r, y), QPointF(x + r, y))
+        p.drawLine(QPointF(x, y - r), QPointF(x, y + r))
+        p.drawLine(QPointF(x - r * 0.6, y - r * 0.6), QPointF(x + r * 0.6, y + r * 0.6))
+        p.drawLine(QPointF(x - r * 0.6, y + r * 0.6), QPointF(x + r * 0.6, y - r * 0.6))
 
     def draw_sparkles(self, p, sx, sy, cx, cy, base_r, col, mood):
         p.setPen(Qt.PenStyle.NoPen)
@@ -754,8 +1189,59 @@ class PetWindow(QWidget):
         if mood.fx == "think":
             for i in range(3):
                 a = self.model.t * 1.5 + i * 2.1
-                p.setBrush(QColor(col.red(), col.green(), col.blue(), 150 - i * 28))
-                p.drawEllipse(QPointF(cx + math.cos(a) * base_r * 1.5, cy - base_r + math.sin(a) * 5 - i * 3), max(2.2 - i * 0.4, 0.5), max(2.2 - i * 0.4, 0.5))
+                alpha = int((0.6 - i * 0.14) * 255)
+                size = max(2 - i * 0.4, 0.5)
+                p.setBrush(QColor(col.red(), col.green(), col.blue(), alpha))
+                p.drawEllipse(QPointF(cx + math.cos(a) * base_r * 1.5, cy - base_r + math.sin(a) * 5 - i * 2.5), size, size)
+
+    def draw_extra_fx(self, p, cx, cy, base_r, col, mood):
+        if mood.fx == "orbit":
+            p.setPen(QPen(QColor(col.red(), col.green(), col.blue(), 31), 1.0))
+            p.setBrush(Qt.BrushStyle.NoBrush)
+            p.drawEllipse(QPointF(cx, cy), base_r * 1.34, base_r * 1.34 * 0.66)
+            p.setPen(Qt.PenStyle.NoPen)
+            for i in range(4):
+                a = self.model.t * 1.4 + i / 4 * math.tau
+                ox = cx + math.cos(a) * base_r * 1.34
+                oy = cy + math.sin(a) * base_r * 1.34 * 0.66
+                self.radial(p, QPointF(ox, oy), 4, col, 150)
+                p.setBrush(QColor(col.red(), col.green(), col.blue(), 216))
+                p.drawEllipse(QPointF(ox, oy), 1.5, 1.5)
+        elif mood.fx == "wave":
+            p.setPen(QPen(QColor(col.red(), col.green(), col.blue(), 110), 1.2, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
+            for i in range(3):
+                phase = (self.model.t * 1.3 + i * 0.5) % 1.5
+                wr = base_r * (1.05 + phase * 0.55)
+                alpha = int(max(0, 1 - phase / 1.5) * 128)
+                p.setPen(QPen(QColor(col.red(), col.green(), col.blue(), alpha), 1.2, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
+                rect = QRectF(cx + base_r * 0.15 - wr, cy - wr, wr * 2, wr * 2)
+                p.drawArc(rect, int(-0.3 * 180 * 16), int(0.6 * 180 * 16))
+        elif mood.fx == "steam":
+            p.setPen(QPen(QColor(col.red(), col.green(), col.blue(), 46), 1.1, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
+            for i, bx in enumerate((cx - 7.5, cx + 7.5)):
+                path = QPainterPath()
+                for j in range(13):
+                    f = j / 12
+                    yy = cy - base_r * 0.75 - f * 24
+                    xx = bx + math.sin(f * 6 + self.model.t * 2 + i * 1.7) * 3.5 * f
+                    if j == 0:
+                        path.moveTo(QPointF(xx, yy))
+                    else:
+                        path.lineTo(QPointF(xx, yy))
+                p.drawPath(path)
+        elif mood.fx == "quest":
+            pulse = 1 + math.sin(self.model.t * 3) * 0.09
+            qx = cx + base_r * 0.98
+            qy = cy - base_r * 0.96 + math.sin(self.model.t * 3) * 2.5
+            p.save()
+            p.translate(qx, qy)
+            p.rotate(math.degrees(0.18 + math.sin(self.model.t * 1.8) * 0.1))
+            p.scale(pulse, pulse)
+            p.setFont(QFont("Microsoft YaHei UI", 27, QFont.Weight.Bold))
+            self.radial(p, QPointF(0, 0), 11, col, 130)
+            p.setPen(QColor(col.red(), col.green(), col.blue(), 242))
+            p.drawText(QRectF(-18, -20, 36, 36), Qt.AlignmentFlag.AlignCenter, "?")
+            p.restore()
 
 
 class CloseButton(QPushButton):
@@ -847,8 +1333,7 @@ class ControlPanel(QDialog):
         root.addWidget(self.status)
         self.talk = QTextEdit()
         self.talk.setMinimumHeight(86)
-        self.talk.setPlaceholderText("在这里打字，宠物会感知你的节奏")
-        self.talk.textChanged.connect(self.model.notify_typing)
+        self.talk.setPlaceholderText("在这里打字 —— 打得越快它越兴奋；停下太久它会犯困")
         root.addWidget(self.talk)
         root.addWidget(self.section("神态 Mood"))
         mood_grid = QGridLayout()
@@ -879,6 +1364,8 @@ class ControlPanel(QDialog):
         root.addWidget(self.time_label)
         self.time_slider = QSlider(Qt.Orientation.Horizontal)
         self.time_slider.setRange(0, 1440)
+        self.time_slider.setSingleStep(5)
+        self.time_slider.setPageStep(60)
         self.time_slider.valueChanged.connect(self.time_changed)
         root.addWidget(self.time_slider)
         root.addWidget(self.section("系统繁忙度"))
@@ -905,7 +1392,7 @@ class ControlPanel(QDialog):
         for btn in (self.sound_btn, self.real_btn, self.fast_btn, self.top_btn, hide_btn, quit_btn):
             actions.addWidget(btn)
         root.addLayout(actions)
-        hint = QLabel("左键拖动宠物移动 · 点一下是戳 · 身上来回划是抚摸 · 右键宠物打开控制台")
+        hint = QLabel("左键拖动宠物移动 · 点一下是戳 · 身上来回划是抚摸 · 右键宠物打开选项")
         hint.setObjectName("hintText")
         hint.setWordWrap(True)
         root.addWidget(hint)
@@ -1067,6 +1554,13 @@ class ControlPanel(QDialog):
 
     def eventFilter(self, obj, event):
         event_name = event.type().name
+        if obj is getattr(self, "talk", None) and event_name == "KeyPress":
+            self.model.notify_typing()
+            if event.key() in {Qt.Key.Key_Return, Qt.Key.Key_Enter} and not (event.modifiers() & Qt.KeyboardModifier.ShiftModifier):
+                text = self.talk.toPlainText().strip()
+                self.talk.clear()
+                self.pet.submit_chat(text)
+                return True
         if event_name == "MouseButtonPress" and event.button() == Qt.MouseButton.LeftButton:
             if not self.is_interactive_drag_target(obj):
                 self.dragging_panel = True
@@ -1106,6 +1600,9 @@ class ControlPanel(QDialog):
         btn.setCheckable(checkable)
         btn.setCursor(Qt.CursorShape.PointingHandCursor)
         return btn
+
+    def focus_talk(self):
+        self.talk.setFocus(Qt.FocusReason.OtherFocusReason)
 
     def refresh(self):
         self.apply_theme_style()
@@ -1150,12 +1647,18 @@ class ControlPanel(QDialog):
 
     def time_changed(self, value):
         if self.time_slider.isSliderDown():
-            self.model.manual_minutes = value
+            snapped = int(round(value / 5) * 5)
+            if snapped != value:
+                with QSignalBlocker(self.time_slider):
+                    self.time_slider.setValue(snapped)
+            self.model.manual_minutes = snapped
             self.model.time_mode = "manual"
             self.model.save_settings()
             self.refresh()
 
     def set_time_mode(self, mode):
+        if mode == "fast" and self.model.time_mode != "fast":
+            self.model.manual_minutes = self.model.current_minutes()
         self.model.time_mode = mode
         self.model.save_settings()
         self.refresh()
@@ -1184,6 +1687,8 @@ class AppKeyFilter(QWidget):
         self.model = model
 
     def eventFilter(self, obj, event):
+        if isinstance(obj, QTextEdit):
+            return False
         if event.type().name in {"KeyPress", "ShortcutOverride"}:
             self.model.notify_typing()
         return False
