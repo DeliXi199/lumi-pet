@@ -5,3 +5,6 @@ build/
 dist/
 *.spec
 pet_settings.json
+agent_panel_state.json
+pet_app.lock
+pet_*_check.png

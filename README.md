@@ -39,6 +39,23 @@ run-legacy.bat
 build-app.bat
 ```
 
+## 代码结构
+
+新版 PySide6 入口仍然保留在 `pet_app.py`，但主要代码已经拆到 `pet/` 包里：
+
+```text
+pet/
+  config.py          # 路径、外部命令和运行配置
+  model.py           # 宠物状态、主题、神态和物理更新
+  qt_app.py          # Qt 应用启动、自检和冒烟测试
+  single_instance.py # 单实例锁
+  utils.py           # 通用文本、颜色和数值工具
+  agent/             # Agent 会话、RPC 进程和面板状态
+  ui/                # 宠物窗口、控制面板、Agent 工作台和通用按钮
+```
+
+`desktop_pet.py` 仍然是纯标准库备用入口，尽量保持独立，主线功能优先放在 `pet/` 包内维护。
+
 ## 已保留的功能
 
 - 自动 / 手动神态：待机、开心、兴奋、好奇、调皮、紧绷、思考、安宁、困倦、惊讶
